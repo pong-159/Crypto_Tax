@@ -6,70 +6,55 @@ import java.util.*;
 
 public class Main {
 
-    static Map<String, Queue<TradingRecord>> recordMap = new HashMap<>();
-    static  BigDecimal profit = BigDecimal.ZERO;
 
 
     public static void main(String[] args) {
         String file = "./crypto_tax.txt";
 
         try{
-            BufferedReader reader = getReader(file);
-
-            List<TradingRecord> content = readFile(reader);
-
-//            Double sum = calulateProfit(content);
-
+            BufferedReader reader = getFileReader(file);
+            BigDecimal profit = calculateProfit(reader);
             System.out.println(profit.toString());
-
-
 
         }catch(Exception ex){
             ex.printStackTrace();
-            System.out.println(ex);
+            System.out.println(ex.toString());
         }
 
     }
 
-    static BufferedReader getReader(String path) throws FileNotFoundException {
-
+    static BufferedReader getFileReader(String path) throws FileNotFoundException {
             BufferedReader reader = new BufferedReader(new FileReader(path));
             return reader;
 
     }
 
-    static List<TradingRecord> readFile(BufferedReader reader) throws IOException {
-
-
-        List<TradingRecord> content = new ArrayList<>();
-
+    static BigDecimal  calculateProfit(BufferedReader reader) throws IOException {
+        Map<String, Queue<TradingRecord>> recordMap = new HashMap<>();
+        BigDecimal profit = BigDecimal.ZERO;
         String line;
         while ((line = reader.readLine()) != null) {
             String[] lineSplit = line.trim().split(" ");
-            TradingRecord record = new TradingRecord();
-            record.setCoinType(lineSplit[1]);
-            record.setValue(BigDecimal.valueOf(Double.parseDouble(lineSplit[2])));
-            record.setAmount(BigDecimal.valueOf(Double.parseDouble(lineSplit[3])));
-
-
+            TradingRecord record = getTradingRecord(lineSplit);
             if(Objects.equals(lineSplit[0], "B") ){
-                buyCoin(record);
+                buyCoin(record, recordMap);
             } else if(Objects.equals(lineSplit[0], "S")){
-                sellCoin(record);
+                profit = sellCoin(record, profit, recordMap);
             }
-
-//            System.out.println(recordMap);
-//            System.out.println("profit  " + profit);
-
-
-
-            content.add(record);
         }
 
-        return content;
+      return profit;
     }
 
-    static void buyCoin(TradingRecord record){
+    private static TradingRecord getTradingRecord(String[] lineSplit) {
+        TradingRecord record = new TradingRecord();
+        record.setCoinType(lineSplit[1]);
+        record.setValue(BigDecimal.valueOf(Double.parseDouble(lineSplit[2])));
+        record.setAmount(BigDecimal.valueOf(Double.parseDouble(lineSplit[3])));
+        return record;
+    }
+
+    static void buyCoin(TradingRecord record,Map<String, Queue<TradingRecord>> recordMap ){
         if(recordMap.containsKey(record.getCoinType())){
             Queue<TradingRecord> recordQueue = recordMap.get(record.getCoinType());
             recordQueue.add(record);
@@ -83,18 +68,14 @@ public class Main {
         }
     }
 
-    static void sellCoin(TradingRecord newRecord)throws  RuntimeException{
+    static BigDecimal sellCoin(TradingRecord newRecord, BigDecimal profit, Map<String, Queue<TradingRecord>> recordMap)throws  RuntimeException{
         if(!recordMap.containsKey(newRecord.getCoinType())){
             throw new IllegalStateException("Coin Not Found");
         }
-
         Queue<TradingRecord> recordQueue = recordMap.get(newRecord.getCoinType());
-
         if(recordQueue.isEmpty()){
             throw new IllegalStateException("Coin Not Sufficient");
         }
-
-
         TradingRecord record = peekQueue(recordQueue);
 
         if(record.getAmount().compareTo(newRecord.getAmount()) == 0){
@@ -118,7 +99,6 @@ public class Main {
 
 //                System.out.println(newRecord.toString());
 
-
                 record = recordQueue.poll();
                 if(record == null){
                     throw new IllegalStateException("Coin Not Sufficient");
@@ -135,22 +115,18 @@ public class Main {
 
 //                System.out.println("remainingCoin " + remainingCoin);
                 if(remainingCoin.compareTo(BigDecimal.ZERO) == 0){
-                    return;
+                    return profit;
                 }
                 record = peekQueue(recordQueue);
             }
-
-            if(!(remainingCoin.compareTo(BigDecimal.ZERO) == 0)){
                 record = peekQueue(recordQueue);
-
                 BigDecimal profitPerCoin = newRecord.getValue().subtract(record.getValue());
                 profit = profit.add(remainingCoin.multiply(profitPerCoin));
                 BigDecimal newAmount = record.getAmount().subtract(remainingCoin);
                 record.setAmount(newAmount);
-            }
         }
 
-
+        return profit;
     }
     private static TradingRecord peekQueue(Queue<TradingRecord> recordQueue) {
         TradingRecord record;
